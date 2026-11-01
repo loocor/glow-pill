@@ -49,6 +49,7 @@ private struct StudioView: View {
     @State private var pillWidth = 420.0
     @State private var pillHeight = 160.0
     @State private var thickness = 1.0
+    @State private var tint = 100.0
     @State private var still = false
     @State private var paused = false
     @State private var loop = true
@@ -100,7 +101,7 @@ private struct StudioView: View {
 
     private var preview: some View {
         ZStack {
-            background
+            backdrop
             GlowPill(
                 phrases: phrases.isEmpty ? ["Glow AI."] : phrases,
                 width: pillWidth,
@@ -114,12 +115,31 @@ private struct StudioView: View {
                 paused: paused,
                 lights: lights,
                 thickness: Float(thickness),
+                tint: Float(tint / 100),
+                backdrop: backdrop,
                 palette: palette
             )
             .id(run)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+    }
+
+    @ViewBuilder
+    private var backdrop: some View {
+        if backgroundStyle == 3 {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(red: 0.95, green: 0.55, blue: 0.25), location: 0),
+                    .init(color: Color(red: 0.85, green: 0.25, blue: 0.45), location: 0.35),
+                    .init(color: Color(red: 0.30, green: 0.35, blue: 0.90), location: 0.7),
+                    .init(color: Color(red: 0.15, green: 0.75, blue: 0.70), location: 1),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing)
+        } else {
+            background
+        }
     }
 
     private var background: Color {
@@ -164,6 +184,7 @@ private struct StudioView: View {
                         Text("Black").tag(0)
                         Text("White").tag(1)
                         Text("Custom").tag(2)
+                        Text("Gradient").tag(3)
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
@@ -171,6 +192,7 @@ private struct StudioView: View {
                         ColorPicker("Surface color", selection: $customBackground)
                             .font(.system(size: 11))
                     }
+                    SliderRow(title: "Glass darkening", value: $tint, range: 0...100, format: "%.0f%%")
                 }
 
                 Divider().overlay(Color.white.opacity(0.15))

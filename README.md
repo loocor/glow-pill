@@ -34,6 +34,11 @@ WebGL component, ported line-for-line into Metal:
   SwiftUI.
 - **Light curtain switch** (`lights`): turns the whole liquid-light layer off,
   leaving a plain glass stadium with the typewriter.
+- **True transparency** (`tint`): the glass refracts and darkens whatever is
+  actually rendered behind it instead of compositing over a fixed black fill.
+  `tint = 1` keeps the original opaque black glass; lower values blend the
+  backdrop through the lens, with edge refraction and chromatic splitting
+  taken from the real background.
 - **Decoupled geometry** (`width` / `height`): the original fixes a 2.92:1
   aspect; here height is independent, and the shader derives the stadium SDF
   from the actual bounds.
@@ -73,8 +78,10 @@ stadium aspect; pass `height` to decouple it), `timing` (`startDelay` /
 `typeSpeed` / `hold`), `glow` (0–2), `surge` (0–1.5), `speed` (liquid speed
 multiplier), `still` (freeze the liquid), `loop`, `paused`, `lights` (the
 liquid-light curtain on/off), `thickness` (light-curtain thickness scale,
-1 = reference), and `palette` (`warm` / `core` / `teal` / `cool` colors;
-presets `.reference`, `.ember`, `.ice`).
+1 = reference), `tint` (glass darkening, 0 = clear, 1 = the original black
+glass), an optional `backdrop` view (defaults to black), and `palette`
+(`warm` / `core` / `teal` / `cool` colors; presets `.reference`, `.ember`,
+`.ice`).
 
 The compiled Metal library is loaded from the package bundle
 (`ShaderLibrary.bundle(.module)`), so no extra setup is needed when the

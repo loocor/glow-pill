@@ -235,6 +235,8 @@ public struct GlowPill: View {
     public var paused: Bool
     public var lights: Bool
     public var thickness: Float
+    public var tint: Float
+    var backdrop: AnyView
     public var palette: GlowPillPalette
 
     @State private var clock = GlowPillClock()
@@ -253,6 +255,8 @@ public struct GlowPill: View {
         paused: Bool = false,
         lights: Bool = true,
         thickness: Float = 1,
+        tint: Float = 1,
+        backdrop: (any View)? = nil,
         palette: GlowPillPalette = .reference
     ) {
         self.phrases = phrases
@@ -267,6 +271,8 @@ public struct GlowPill: View {
         self.paused = paused
         self.lights = lights
         self.thickness = thickness
+        self.tint = tint
+        self.backdrop = backdrop.map { AnyView($0) } ?? AnyView(Color.black)
         self.palette = palette
     }
 
@@ -286,30 +292,43 @@ public struct GlowPill: View {
                 reducedMotion: reducedMotion)
 
             ZStack {
-                Color.black
+                backdrop
+                    .frame(width: width, height: height)
+                    .layerEffect(
+                        Shader(
+                            function: ShaderLibrary.bundle(.module).glowPill,
+                            arguments: [
+                                .boundingRect,
+                                .float(frame.time),
+                                .float(frame.surge),
+                                .float(frame.warp),
+                                .float(frame.front),
+                                .float(frame.side),
+                                .float(glow),
+                                .float(surge),
+                                .float3(palette.warm.x, palette.warm.y, palette.warm.z),
+                                .float3(palette.core.x, palette.core.y, palette.core.z),
+                                .float3(palette.teal.x, palette.teal.y, palette.teal.z),
+                                .float3(palette.cool.x, palette.cool.y, palette.cool.z),
+                                .float(lights ? 1 : 0),
+                                .float(thickness),
+                                .float(tint),
+                            ]),
+                        maxSampleOffset: CGSize(width: 16, height: 16))
+
                 textLayer(frame: frame, height: height)
+                    .layerEffect(
+                        Shader(
+                            function: ShaderLibrary.bundle(.module).glowPillText,
+                            arguments: [
+                                .boundingRect,
+                                .float(frame.time),
+                                .float(frame.warp),
+                                .float(surge),
+                            ]),
+                        maxSampleOffset: CGSize(width: 16, height: 16))
             }
             .frame(width: width, height: height)
-            .layerEffect(
-                Shader(
-                    function: ShaderLibrary.bundle(.module).glowPill,
-                    arguments: [
-                        .boundingRect,
-                        .float(frame.time),
-                        .float(frame.surge),
-                        .float(frame.warp),
-                        .float(frame.front),
-                        .float(frame.side),
-                        .float(glow),
-                        .float(surge),
-                        .float3(palette.warm.x, palette.warm.y, palette.warm.z),
-                        .float3(palette.core.x, palette.core.y, palette.core.z),
-                        .float3(palette.teal.x, palette.teal.y, palette.teal.z),
-                        .float3(palette.cool.x, palette.cool.y, palette.cool.z),
-                        .float(lights ? 1 : 0),
-                        .float(thickness),
-                    ]),
-                maxSampleOffset: CGSize(width: 16, height: 16))
         }
     }
 

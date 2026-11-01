@@ -93,7 +93,8 @@ float3 palette(float x, float3 warm, float3 core, float3 teal, float3 cool, floa
     float3 teal,
     float3 cool,
     float lights,
-    float thick) {
+    float thick,
+    float tint) {
   float2 res = boundingRect.zw;
   // GL-style fragment coordinate, y up.
   float2 frag = position - boundingRect.xy;
@@ -190,9 +191,8 @@ float3 palette(float x, float3 warm, float3 core, float3 teal, float3 cool, floa
   float3 rimColor = float3(rim) + glowC * 0.35 * inside;
   float sheen = 0.05 * top * exp(min(d, 0.0) / 0.022);
 
-  float3 col = glowC + float3(sheen);
-
-  // Text through the lens: refract, warp, and split channels while surging.
+  // Backdrop through the lens: refract at the edges, warp while surging,
+  // split channels for a chromatic rim, then darken by the glass tint.
   float w = warp * flood;
   float2 tp = p / (1.0 + 0.04 * w);
   tp += float2(0.011 * sin(p.y * 9.0 + t * 7.0),
@@ -201,16 +201,14 @@ float3 palette(float x, float3 warm, float3 core, float3 teal, float3 cool, floa
   tp -= n * edge * (0.012 + 0.05 * w);
   float ca = 0.007 * w + 0.0012 * edge;
 
-  // Convert the GL-space sample point back into view coordinates (y down).
   float2 uvGl = (tp * H + 0.5 * res) / res;
   float2 base = boundingRect.xy + float2(uvGl.x, 1.0 - uvGl.y) * res;
   float2 caView = ca * H * float2(1.0, -0.3);
-  half4 tr = layer.sample(base + caView);
-  half4 tg = layer.sample(base);
-  half4 tb = layer.sample(base - caView);
-  float3 textRGB = float3(float3(tr.r, tg.g, tb.b));
-  float ta = max(float(tr.r), max(float(tg.g), float(tb.b)));
-  col = col * (1.0 - ta) + textRGB;
+  half4 backR = layer.sample(base + caView);
+  half4 backG = layer.sample(base);
+  half4 backB = layer.sample(base - caView);
+  float3 backdropRGB = float3(backR.r, backG.g, backB.b);
+  float3 col = mix(backdropRGB, float3(0.0), tint) + glowC + float3(sheen);
 
   // The rim adds on top, so the bottom edge reads as a lit line of glass.
   col = clamp(col, 0.0, 1.0) * inside;
@@ -218,4 +216,43 @@ float3 palette(float x, float3 warm, float3 core, float3 teal, float3 cool, floa
 
   float alpha = max(inside, rimLine);
   return half4(half3(col), half(alpha));
+}
+
+// Text pass: the same refraction, applied to the transparent text layer.
+[[ stitchable ]] half4 glowPillText(
+    float2 position,
+    SwiftUI::Layer layer,
+    float4 boundingRect,
+    float time,
+    float warp,
+    float flood) {
+  float2 res = boundingRect.zw;
+  float2 frag = position - boundingRect.xy;
+  frag.y = res.y - frag.y;
+  float H = res.y;
+  float aspect = res.x / H;
+  float2 p = (frag - 0.5 * res) / H;
+  float t = time;
+
+  float d = pillSdf(p, aspect);
+  float2 q = float2(max(abs(p.x) - (aspect * 0.5 - 0.5), 0.0) * sign(p.x), p.y);
+  float2 n = q / max(length(q), 1e-4);
+
+  float w = warp * flood;
+  float2 tp = p / (1.0 + 0.04 * w);
+  tp += float2(0.011 * sin(p.y * 9.0 + t * 7.0),
+               0.017 * sin(p.x * 4.6 - t * 6.0)) * w;
+  float edge = exp(min(d, 0.0) / 0.11);
+  tp -= n * edge * (0.012 + 0.05 * w);
+  float ca = 0.007 * w + 0.0012 * edge;
+
+  float2 uvGl = (tp * H + 0.5 * res) / res;
+  float2 base = boundingRect.xy + float2(uvGl.x, 1.0 - uvGl.y) * res;
+  float2 caView = ca * H * float2(1.0, -0.3);
+  half4 tr = layer.sample(base + caView);
+  half4 tg = layer.sample(base);
+  half4 tb = layer.sample(base - caView);
+  float3 textRGB = float3(tr.r, tg.g, tb.b);
+  float ta = (float(tr.a) + float(tg.a) + float(tb.a)) / 3.0;
+  return half4(half3(clamp(textRGB, 0.0, 1.0)), half(ta));
 }
